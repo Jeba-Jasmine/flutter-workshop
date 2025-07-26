@@ -1,0 +1,76 @@
+package develop.example.demo.controller;
+
+import develop.example.demo.model.Todo;
+import develop.example.demo.repository.TodoRepository;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/todos")
+public class TodoController {
+
+    private final TodoRepository todoRepository;
+
+    public TodoController(TodoRepository todoRepository) {
+        this.todoRepository = todoRepository;
+    }
+
+    // GET all todos
+    @GetMapping
+    public ResponseEntity<List<Todo>> getAllTodos() {
+        return ResponseEntity.ok(todoRepository.findAll());
+    }
+
+    // GET todo by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<Todo> getTodoById(@PathVariable Long id) {
+        return todoRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // POST create new todo
+    @PostMapping
+    public ResponseEntity<Todo> createTodo(@RequestBody Todo todo) {
+        todo.setId(null); // Ensure a new ID is generated
+        todo.setCreatedAt(java.time.LocalDateTime.now().toString());
+        todo.setCompleted(false);
+        return ResponseEntity.ok(todoRepository.save(todo));
+    }
+
+    // PUT update existing todo
+    @PutMapping("/{id}")
+    public ResponseEntity<Todo> updateTodo(@PathVariable Long id, @RequestBody Todo updatedTodo) {
+        return todoRepository.findById(id)
+                .map(existing -> {
+                    existing.setTitle(updatedTodo.getTitle());
+                    existing.setDescription(updatedTodo.getDescription());
+                    existing.setCompleted(updatedTodo.isCompleted());
+                    return ResponseEntity.ok(todoRepository.save(existing));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // DELETE a todo
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTodo(@PathVariable Long id) {
+        if (!todoRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        todoRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // PATCH toggle completion
+    @PatchMapping("/{id}/toggle")
+    public ResponseEntity<Todo> toggleCompleted(@PathVariable Long id) {
+        return todoRepository.findById(id)
+                .map(todo -> {
+                    todo.setCompleted(!todo.isCompleted());
+                    return ResponseEntity.ok(todoRepository.save(todo));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+}
