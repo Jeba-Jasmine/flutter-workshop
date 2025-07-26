@@ -1,0 +1,79 @@
+import 'package:flutter/material.dart';
+
+class DatePickerField extends StatelessWidget {
+  final DateTime? selectedDate;
+  final VoidCallback onTap;
+
+  const DatePickerField({
+    super.key,
+    required this.selectedDate,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: _boxDecoration(),
+        child: Text(
+          selectedDate == null
+              ? "Pick a due date"
+              : "${selectedDate!.toLocal()}".split(' ')[0],
+          style: const TextStyle(fontSize: 16, color: Colors.black87),
+        ),
+      ),
+    );
+  }
+}
+
+class TimePickerField extends StatelessWidget {
+  final TimeOfDay? selectedTime;
+  final VoidCallback onTap;
+  final String label;
+
+  const TimePickerField({
+    super.key,
+    required this.selectedTime,
+    required this.onTap,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: _boxDecoration(),
+        child: Text(
+          _formatTime(selectedTime, label),
+          style: const TextStyle(fontSize: 16, color: Colors.black87),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatTime(TimeOfDay? time, String fallbackLabel) {
+  if (time == null) return fallbackLabel;
+  final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+  final minute = time.minute.toString().padLeft(2, '0');
+  final period = time.period == DayPeriod.am ? "AM" : "PM";
+  return "$hour:$minute $period";
+}
+
+BoxDecoration _boxDecoration() {
+  return BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.grey.withOpacity(0.2),
+        blurRadius: 5,
+        offset: const Offset(0, 3),
+      ),
+    ],
+  );
+}
