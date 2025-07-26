@@ -1,0 +1,69 @@
+// ignore_for_file: deprecated_member_use
+
+import 'package:flutter/material.dart';
+
+Widget styledInput({
+  required TextEditingController controller,
+  required String hint,
+  bool isRequired = false,
+}) {
+  return Container(
+    decoration: boxDecoration(),
+    child: TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: hint,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        border: InputBorder.none,
+      ),
+      validator: isRequired
+          ? (value) => value!.isEmpty ? "This field is required" : null
+          : null,
+    ),
+  );
+}
+
+Widget styledDropdown({
+  required String value,
+  required List<String> items,
+  required ValueChanged<String?> onChanged,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    decoration: boxDecoration(),
+    child: DropdownButtonFormField<String>(
+      value: value,
+      icon: const Icon(Icons.arrow_drop_down),
+      decoration: const InputDecoration(border: InputBorder.none),
+      items: items
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .toList(),
+      onChanged: onChanged,
+    ),
+  );
+}
+
+Widget buildLabel(String text) {
+  return Text(
+    text,
+    style: const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: Colors.black87,
+    ),
+  );
+}
+
+BoxDecoration boxDecoration() {
+  return BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.grey.withOpacity(0.2),
+        blurRadius: 5,
+        offset: const Offset(0, 3),
+      ),
+    ],
+  );
+}
