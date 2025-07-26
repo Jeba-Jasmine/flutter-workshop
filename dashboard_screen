@@ -1,0 +1,592 @@
+// ignore_for_file: deprecated_member_use
+
+import 'package:flutter/material.dart';
+import 'create_task_screen.dart';
+import 'task_model.dart';
+import 'api_service.dart';
+
+class TaskDashboard extends StatefulWidget {
+  const TaskDashboard({super.key});
+
+  @override
+  State<TaskDashboard> createState() => _TaskDashboardState();
+}
+
+class _TaskDashboardState extends State<TaskDashboard> {
+  Offset? helpButtonPosition;
+
+  List<Task> allTasks = [
+    Task(
+      title: "Meeting",
+      description: "Team sync-up",
+      status: "To-Do",
+      dueDate: DateTime.now(),
+      startTime: TimeOfDay(hour: 10, minute: 0),
+      endTime: TimeOfDay(hour: 11, minute: 0),
+    ),
+    Task(
+      title: "Design UI",
+      description: "Olakart App",
+      status: "Progress",
+      dueDate: DateTime.now().add(const Duration(days: 1)),
+      startTime: TimeOfDay(hour: 14, minute: 0),
+      endTime: TimeOfDay(hour: 15, minute: 30),
+      progress: 0.6,
+    ),
+    Task(
+      title: "Test Module",
+      description: "Complete testing",
+      status: "Done",
+      dueDate: DateTime.now().add(const Duration(days: 2)),
+      startTime: TimeOfDay(hour: 9, minute: 30),
+      endTime: TimeOfDay(hour: 10, minute: 30),
+    ),
+  ];
+
+  String searchQuery = '';
+  String selectedStatus = 'All';
+
+  void _addTask(Task task) async {
+  final createdTask = await ApiService.createTask(task); // now defined
+
+  if (createdTask != null) {
+    setState(() {
+      allTasks.add(createdTask); // now valid
+    });
+  }
+}
+
+
+  void _editTask(int index, Task updatedTask) async {
+  final tasks = _filteredTasks();
+  final oldTask = tasks[index];
+  final actualIndex = allTasks.indexOf(oldTask);
+  updatedTask.id = oldTask.id;
+
+  final success = await ApiService.updateTask(updatedTask, updatedTask.id!);
+
+  if (success) {
+    setState(() {
+      allTasks[actualIndex] = updatedTask;
+    });
+  } else {
+    debugPrint("Failed to update task on backend.");
+  }
+}
+
+
+  void _deleteTask(int index) {
+  final tasks = _filteredTasks();
+  final taskToDelete = tasks[index];
+
+  setState(() {
+    allTasks.remove(taskToDelete);
+  });
+
+  if (taskToDelete.id != null) {
+    ApiService.deleteTask(taskToDelete.id!); // Call your API service
+  } else {
+    debugPrint("Warning: Task ID is null, cannot delete from backend.");
+  }
+}
+
+
+  void _toggleStatus(int index) {
+    final tasks = _filteredTasks();
+    final task = tasks[index];
+
+    setState(() {
+      switch (task.status) {
+        case 'To-Do':
+          task.status = 'Progress';
+          break;
+        case 'Progress':
+          task.progress = (task.progress ?? 0.0) + 0.2;
+          if ((task.progress ?? 0.0) >= 1.0) {
+            task.progress = 1.0;
+            task.status = 'Done';
+          }
+          break;
+        default:
+          task.status = 'To-Do';
+          task.progress = 0.0;
+      }
+    });
+  }
+
+  List<Task> _filteredTasks() {
+    return allTasks.where((task) {
+      final matchesSearch = task.title.toLowerCase().contains(
+        searchQuery.toLowerCase(),
+      );
+      final matchesStatus =
+          selectedStatus == 'All' || task.status == selectedStatus;
+      return matchesSearch && matchesStatus;
+    }).toList();
+  }
+
+  bool isSameWeek(DateTime date) {
+    final now = DateTime.now();
+    final beginningOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final endOfWeek = beginningOfWeek.add(const Duration(days: 6));
+    return date.isAfter(beginningOfWeek.subtract(const Duration(seconds: 1))) &&
+        date.isBefore(endOfWeek.add(const Duration(days: 1)));
+  }
+
+  String getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return "Good Morning";
+    if (hour < 16) return "Good Afternoon";
+    return "Good Evening";
+  }
+
+  Widget _buildLegendFilterCircle({
+    required Color color,
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    final isSelected = selectedStatus == label;
+    return GestureDetector(
+      onTap: () {
+        if (label != 'Add Task') {
+          setState(() {
+            selectedStatus = label;
+          });
+        }
+        if (onTap != null) onTap();
+      },
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(isSelected ? 0.5 : 1.0),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.black45 : Colors.black12,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(icon, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("How to Use This App"),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("📝 Add Task:"),
+              Text("• Tap 'Add Task' to create a new task."),
+              SizedBox(height: 10),
+              Text("📋 Filters:"),
+              Text("• Tap filter buttons to view tasks by status."),
+              SizedBox(height: 10),
+              Text("🔁 Tap Task:"),
+              Text("• Tap task to cycle its status."),
+              SizedBox(height: 10),
+              Text("📝 Edit:"),
+              Text("• Tap ✏️ to update task details."),
+              SizedBox(height: 10),
+              Text("🗑️ Delete:"),
+              Text("• Tap 🗑️ to remove a task."),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            child: const Text("Close"),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredTasks = _filteredTasks();
+    final screenSize = MediaQuery.of(context).size;
+    final padding = MediaQuery.of(context).padding;
+
+    helpButtonPosition ??= Offset(
+      screenSize.width * 0.75,
+      screenSize.height - 70 - padding.bottom,
+    );
+
+    final Map<String, Color> statusColor = {
+      'To-Do': const Color(0xFFFF8A80),
+      'Progress': const Color(0xFF6698E9),
+      'Done': const Color(0xFF82DA85),
+    };
+
+    return Scaffold(
+      body: Container(
+        color: const Color(0xFFFFDCF0),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "${getGreeting()}, Jeba",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              const TextSpan(
+                                text: "You have ",
+                                style: TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              TextSpan(
+                                text:
+                                    "${allTasks.where((task) => isSameWeek(task.dueDate) && task.status != 'Done').length} tasks",
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: " this week",
+                                style: TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.yellow,
+                      backgroundImage: AssetImage('assets/profile.jpg'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 15),
+
+                // Search Bar
+                TextField(
+                  onChanged: (value) => setState(() => searchQuery = value),
+                  decoration: InputDecoration(
+                    hintText: "Search tasks...",
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Status Filters
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildLegendFilterCircle(
+                      color: Colors.black12,
+                      icon: Icons.list,
+                      label: 'All',
+                    ),
+                    _buildLegendFilterCircle(
+                      color: const Color(0xFFFF8A80),
+                      icon: Icons.list_alt,
+                      label: 'To-Do',
+                    ),
+                    _buildLegendFilterCircle(
+                      color: const Color(0xFF6698E9),
+                      icon: Icons.hourglass_top,
+                      label: 'Progress',
+                    ),
+                    _buildLegendFilterCircle(
+                      color: const Color(0xFF82DA85),
+                      icon: Icons.check_circle,
+                      label: 'Done',
+                    ),
+                    _buildLegendFilterCircle(
+                      color: Colors.pinkAccent,
+                      icon: Icons.add,
+                      label: 'Add Task',
+                     onTap: () async {
+  final newTask = await Navigator.push<Task>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => CreateTaskScreen(onTaskCreated: _addTask),
+    ),
+  );
+
+  if (newTask != null) {
+    _addTask(newTask);
+  }
+},
+
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // Task List
+                Expanded(
+                  child: filteredTasks.isEmpty
+                      ? const Center(child: Text("No matching tasks"))
+                      : ListView.builder(
+                          itemCount: filteredTasks.length,
+                          itemBuilder: (context, index) {
+                            final task = filteredTasks[index];
+                            return GestureDetector(
+                              onTap: () => _toggleStatus(index),
+                              child: Card(
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                color: statusColor[task.status] ?? Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ListTile(
+                                  leading: task.status == 'Progress'
+                                      ? Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            SizedBox(
+                                              width: 44,
+                                              height: 44,
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  CircularProgressIndicator(
+                                                    value: task.progress,
+                                                    strokeWidth: 5,
+                                                    valueColor:
+                                                        const AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
+                                                    backgroundColor:
+                                                        Colors.white24,
+                                                  ),
+                                                  Text(
+                                                    "${((task.progress ?? 0.0) * 100).toInt()}%",
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Container(
+                                          width: 37,
+                                          height: 37,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                            color: task.status == "Done"
+                                                ? Colors.white
+                                                : Colors.transparent,
+                                          ),
+                                          child: Center(
+                                            child: Icon(
+                                              task.status == "Done"
+                                                  ? Icons.check
+                                                  : Icons.circle_outlined,
+                                              size: 32,
+                                              color: task.status == "Done"
+                                                  ? statusColor[task.status]
+                                                  : Colors.white70,
+                                            ),
+                                          ),
+                                        ),
+                                  title: Text(
+                                    task.title,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      fontStyle: task.status == 'Progress'
+                                          ? FontStyle.italic
+                                          : FontStyle.normal,
+                                      decoration: task.status == 'Done'
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                      decorationColor: Colors.white,
+                                      decorationThickness: 3,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    [
+                                      if (task.description.trim().isNotEmpty)
+                                        task.description,
+                                      "Due: ${task.dueDate.toLocal().toString().split(' ')[0]}",
+                                      if (task.startTime != null &&
+                                          task.endTime != null)
+                                        "Start: ${task.startTime!.format(context)} - End: ${task.endTime!.format(context)}"
+                                      else if (task.startTime != null)
+                                        "Start: ${task.startTime!.format(context)}"
+                                      else if (task.endTime != null)
+                                        "End: ${task.endTime!.format(context)}",
+                                    ].join('\n'),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontStyle: task.status == 'Progress'
+                                          ? FontStyle.italic
+                                          : FontStyle.normal,
+                                      decoration: task.status == 'Done'
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                      decorationColor: Colors.white,
+                                      decorationThickness: 2.5,
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        color: Colors.white,
+                                        onPressed: () async {
+  final updatedTask = await Navigator.push<Task>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => CreateTaskScreen(
+        existingTask: task,
+        onTaskCreated: (_) {},
+        onTaskUpdated: (updated) => _editTask(index, updated),
+        isEditMode: true,
+      ),
+    ),
+  );
+
+  if (updatedTask != null) {
+    _editTask(index, updatedTask);
+  }
+},
+
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        color: Colors.white,
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (BuildContext context) {
+                                              return AlertDialog(
+                                                title: const Text(
+                                                  "Delete Task",
+                                                ),
+                                                content: const Text(
+                                                  "Are you sure you want to delete this task?",
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    child: const Text("Cancel"),
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop(),
+                                                  ),
+                                                  ElevatedButton(
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              Colors.red,
+                                                        ),
+                                                    child: const Text("Delete"),
+                                                    onPressed: () {
+                                                      Navigator.of(
+                                                        context,
+                                                      ).pop();
+                                                      _deleteTask(index);
+                                                    },
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+
+      // Floating Help Button
+      floatingActionButton: Stack(
+        children: [
+          Positioned(
+            left: helpButtonPosition?.dx ?? screenSize.width * 0.8,
+            top: helpButtonPosition?.dy ?? screenSize.height * 0.85,
+            child: Draggable(
+              feedback: FloatingActionButton(
+                backgroundColor: Colors.deepPurple,
+                onPressed: _showHelpDialog,
+                child: const Icon(Icons.help_outline, color: Colors.white),
+              ),
+              childWhenDragging: const SizedBox(),
+              onDragEnd: (details) =>
+                  setState(() => helpButtonPosition = details.offset),
+              child: FloatingActionButton(
+                backgroundColor: Colors.deepPurple,
+                onPressed: _showHelpDialog,
+                child: const Icon(Icons.help_outline, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}  
